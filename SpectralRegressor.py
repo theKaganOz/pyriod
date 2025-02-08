@@ -67,6 +67,7 @@ def harmonic_regression_analysis(periods, t_max, target_series, p_threshold=0.05
 
     # Perform OLS regression
     X = sm.add_constant(ols_df)  # Add intercept
+    print(X)
     y = ols_df['target']
     # Obtain initial model idea
     initial_model = sm.OLS(y, X).fit()
