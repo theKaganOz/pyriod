@@ -5,7 +5,7 @@ Created on Fri Sep 27 21:32:25 2024
 @author: kagan
 """
 
-from SpectralAnalzyer import *
+from SpectralAnalyzer import *
 
 def harmonic_predict(t, harmonic_regression, periods):
     intercept = harmonic_regression.params[0]
@@ -57,27 +57,30 @@ def harmonic_regression_analysis(periods, t_max, target_series, p_threshold=0.05
 
     # Construct DataFrame with harmonic components
     harmonic_data = {f'cos_p{p}': np.cos(2 * np.pi * t / p) for p in periods}
-    df = pd.DataFrame(harmonic_data)
+    # Obtain harmonic components
+    harmonic_df = pd.DataFrame(harmonic_data)
     
     # Add the target time series
-    df['target'] = target_series
+    ols_df = harmonic_df.copy()
+    ols_df['target'] = target_series
+    
 
     # Perform OLS regression
-    X = sm.add_constant(df.drop(columns=['target']))  # Add intercept
-    y = df['target']
-    model = sm.OLS(y, X).fit()
-    
+    X = sm.add_constant(ols_df)  # Add intercept
+    y = ols_df['target']
+    # Obtain initial model idea
+    initial_model = sm.OLS(y, X).fit()
     # Select significant components based on p-values
-    significant_columns = [col for col, p_val in model.pvalues.items() if p_val < p_threshold and col != 'const']
+    significant_columns = [col for col, p_val in initial_model.pvalues.items() if p_val < p_threshold and col != 'const']
     
     if not significant_columns:
-        print("No significant components found.")
-        return None, None
+        print("No significant components found. Returning primitive model.")
+        return initial_model
 
     # Perform regression again with only significant components
-    significant_X = sm.add_constant(df[significant_columns])
+    significant_X = sm.add_constant(ols_df[significant_columns])
     significant_model = sm.OLS(y, significant_X).fit()
 
-    return significant_model, df[significant_columns + ['target']]
+    return significant_model, ols_df[significant_columns + ['target']]
 
 
