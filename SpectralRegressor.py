@@ -59,11 +59,12 @@ def harmonic_regression_analysis(periods, t_max, target_series, p_threshold=0.05
     harmonic_data = {f'cos_p{p}': np.cos(2 * np.pi * t / p) for p in periods}
     # Obtain harmonic components
     harmonic_df = pd.DataFrame(harmonic_data)
+    print(harmonic_df)
     
     # Add the target time series
     ols_df = harmonic_df.copy()
     ols_df['target'] = target_series
-    
+    print(ols_df)
 
     # Perform OLS regression
     X = sm.add_constant(ols_df)  # Add intercept
