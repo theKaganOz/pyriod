@@ -33,24 +33,51 @@ def form_harmonic_dataframe(length, periods, phases):
         harmonic = generate_harmonic(length, period, phase)
         harmonic_dataframe[title] = harmonic
     return pd.DataFrame.from_dict(harmonic_dataframe)
-periods = list(period_ampl.Periods)[0:10]
-phases  = [ "cos" for i in range(len(periods))]
-length = len(stock)
-harmonics = form_harmonic_dataframe(length, periods, phases)
-from statsmodels.regression.linear_model import OLS
-from statsmodels.api import add_constant
-harmonic_regression = OLS(np.array(stock), add_constant(harmonics)).fit()
-harmonic_predictions = harmonic_regression.fittedvalues
-harmonic_residuals  = harmonic_regression.resid
-print(harmonic_regression.summary())
-_ = plt.figure()
-_ = plt.plot(np.array(harmonic_predictions))
-_ = plt.plot(np.array(stock))
-_ = plt.figure()
-_ = plt.plot(harmonic_residuals)
-_ = plt.figure()
-_ = plt.hist(harmonic_residuals)
-_ = plot_pacf(harmonic_residuals)
-_ = plt.figure()
-harmonic_predictions = [harmonic_predict(t, harmonic_regression, periods) for t in range(501, 501 + 3 * 60)]
-_ = plt.plot(harmonic_predictions) 
+import numpy as np
+import pandas as pd
+import statsmodels.api as sm
+
+def harmonic_regression_analysis(periods, t_max, target_series, p_threshold=0.05):
+    """
+    Constructs a dataframe with cosine functions of given periods,
+    performs OLS regression, and selects statistically significant components.
+    
+    Parameters:
+    - periods: List of periods for the cosine functions
+    - t_max: Maximum time value (i.e., the length of the series)
+    - target_series: The dependent variable time series
+    - p_threshold: The significance level for selecting components
+
+    Returns:
+    - significant_model: The regression model using only significant components
+    - significant_df: DataFrame with only significant cosine components
+    """
+    # Time index
+    t = np.arange(t_max)
+
+    # Construct DataFrame with harmonic components
+    harmonic_data = {f'cos_p{p}': np.cos(2 * np.pi * t / p) for p in periods}
+    df = pd.DataFrame(harmonic_data)
+    
+    # Add the target time series
+    df['target'] = target_series
+
+    # Perform OLS regression
+    X = sm.add_constant(df.drop(columns=['target']))  # Add intercept
+    y = df['target']
+    model = sm.OLS(y, X).fit()
+    
+    # Select significant components based on p-values
+    significant_columns = [col for col, p_val in model.pvalues.items() if p_val < p_threshold and col != 'const']
+    
+    if not significant_columns:
+        print("No significant components found.")
+        return None, None
+
+    # Perform regression again with only significant components
+    significant_X = sm.add_constant(df[significant_columns])
+    significant_model = sm.OLS(y, significant_X).fit()
+
+    return significant_model, df[significant_columns + ['target']]
+
+
