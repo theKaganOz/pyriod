@@ -48,7 +48,8 @@ class SpectralAnalyzer:
         self.__hidden_periodic_components = self.__form_period_amplitude_map()
     def get_hidden_periodic_components(self):
         return self.__hidden_periodic_components
-    
+    def get_periodogram_unit_root_results(self):
+        return self.__periodic_unit_root
     def form_model_and_forecast(self, series, pacf_threshold):
     # Perform stationarity test
         stationarity_test = adfuller(series)[1] < 0.05 
