@@ -94,6 +94,10 @@ class SpectralAnalyzer:
         
         print("Test stat for {0} is {1}".format(self.__signal.name, test_statistic))
         stationary = test_statistic < critical_values[significance_level]
+        if stationary:
+            print("The series is stationary according to Periodogram Unit Root Test")
+        else:
+            print("The series is not stationary according to Periodogram Unit Root Test")
         return stationary, test_statistic
 
 
