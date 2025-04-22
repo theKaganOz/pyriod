@@ -11,16 +11,6 @@ import random
 def create_neural_network(input_dim, layers_config, activation='relu', dropout_rate=0.0, learning_rate=0.001):
     """
     Dynamically creates a neural network model.
-
-    Parameters:
-    - input_dim (int): Number of input features
-    - layers_config (list of int): Number of neurons in each layer
-    - activation (str): Activation function
-    - dropout_rate (float): Dropout rate (0.0 means no dropout)
-    - learning_rate (float): Learning rate for Adam optimizer
-
-    Returns:
-    - model (Sequential): Compiled Keras model
     """
     model = Sequential()
     for i, units in enumerate(layers_config):
@@ -39,29 +29,13 @@ def create_neural_network(input_dim, layers_config, activation='relu', dropout_r
 def optimize_neural_network(X, y, n_generations=10, population_size=10, input_dim=None):
     """
     Uses NSGA-II to optimize the neural network architecture.
-
-    Objectives:
-    - Minimize validation MSE
-    - Minimize total number of parameters (as complexity penalty)
-
-    Parameters:
-    - X (np.array): Feature set
-    - y (np.array): Target
-    - n_generations (int): Number of evolutionary steps
-    - population_size (int): Size of each generation
-    - input_dim (int): Number of features (optional, inferred from X)
-
-    Returns:
-    - best_individual (list): Best layer configuration
-    - stats (dict): Evolution history
     """
     input_dim = input_dim or X.shape[1]
 
     def evaluate(individual):
-        # Decode architecture
         layers = [int(neurons) for neurons in individual if neurons > 0]
         if len(layers) == 0:
-            return 1e6, 1e6  # Penalize empty models
+            return 1e6, 1e6
 
         model = create_neural_network(input_dim, layers)
         X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2)
@@ -71,7 +45,7 @@ def optimize_neural_network(X, y, n_generations=10, population_size=10, input_di
         n_params = model.count_params()
         return mse, n_params
 
-    creator.create("FitnessMulti", base.Fitness, weights=(-1.0, -1.0))  # Minimize both
+    creator.create("FitnessMulti", base.Fitness, weights=(-1.0, -1.0))
     creator.create("Individual", list, fitness=creator.FitnessMulti)
 
     toolbox = base.Toolbox()
@@ -93,3 +67,44 @@ def optimize_neural_network(X, y, n_generations=10, population_size=10, input_di
 
     best = tools.selBest(pop, 1)[0]
     return best, stats
+
+
+def forecast_residuals_with_nn(residual_series, forecast_horizon=10, lag=10, n_generations=5, pop_size=5):
+    """
+    Forecasts residual series using optimized neural network architecture.
+
+    Parameters:
+    - residual_series (array-like): Time series residuals
+    - forecast_horizon (int): Number of future steps to forecast
+    - lag (int): Number of past lags to use as input features
+    - n_generations (int): Optimization steps
+    - pop_size (int): Population size for NSGA-II
+
+    Returns:
+    - forecasts (list): Forecasted future values
+    - model (Keras model): Trained neural model
+    """
+    # Supervised learning dataset creation
+    X, y = [], []
+    for i in range(lag, len(residual_series)):
+        X.append(residual_series[i-lag:i])
+        y.append(residual_series[i])
+
+    X = np.array(X)
+    y = np.array(y)
+
+    # Optimize architecture
+    best_architecture, _ = optimize_neural_network(X, y, n_generations=n_generations, population_size=pop_size)
+    layers = [int(n) for n in best_architecture if n > 0]
+    model = create_neural_network(X.shape[1], layers)
+    model.fit(X, y, epochs=50, batch_size=32, verbose=0)
+
+    # Forecasting
+    input_seq = list(residual_series[-lag:])
+    forecasts = []
+    for _ in range(forecast_horizon):
+        pred = model.predict(np.array(input_seq[-lag:]).reshape(1, -1), verbose=0)[0][0]
+        forecasts.append(pred)
+        input_seq.append(pred)
+
+    return forecasts, model
