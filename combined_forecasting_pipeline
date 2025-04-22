@@ -1,0 +1,37 @@
+import numpy as np
+from SpectralAnalyzer import forecast_residuals_with_nn
+
+
+def combine_spectral_and_nn_forecast(spectral_component, residual_series, forecast_horizon=10, lag=10, 
+                                      n_generations=5, pop_size=5):
+    """
+    Combines spectral regression and neural network modeling for grey-box forecasting.
+
+    Parameters:
+    - spectral_component (array-like): Fitted/predicted values from spectral regression
+    - residual_series (array-like): Residuals from spectral model
+    - forecast_horizon (int): How far ahead to forecast
+    - lag (int): Lag window for NN input features
+    - n_generations (int): NSGA-II generations
+    - pop_size (int): NSGA-II population size
+
+    Returns:
+    - final_forecast (np.array): Combined forecast from spectral + ML model
+    - residual_forecast (np.array): Forecasted residuals
+    - nn_model: Trained neural model
+    """
+    residual_forecast, nn_model = forecast_residuals_with_nn(
+        residual_series=residual_series,
+        forecast_horizon=forecast_horizon,
+        lag=lag,
+        n_generations=n_generations,
+        pop_size=pop_size
+    )
+
+    # Extend spectral component with its last known slope (naive linear extrapolation)
+    spectral_trend = np.polyfit(np.arange(len(spectral_component)), spectral_component, 1)
+    spectral_extension = [spectral_component[-1] + spectral_trend[0] * (i + 1) for i in range(forecast_horizon)]
+
+    # Combine
+    final_forecast = np.array(spectral_extension) + np.array(residual_forecast)
+    return final_forecast, residual_forecast, nn_model
